@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VERIFIX – Client-Side Digital File Forensics & Document Authenticity Verification</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = { theme: { extend: { fontFamily: { mono: ['ui-monospace','SFMono-Regular','Menlo','Consolas','monospace'] } } } };
+</script>
+<style>
+  html { scroll-behavior: smooth; }
+  body { background: radial-gradient(1200px 600px at 80% -10%, rgba(99,102,241,.12), transparent 60%), radial-gradient(900px 500px at -10% 10%, rgba(34,211,238,.08), transparent 60%), #0f172a; min-height: 100vh; }
+  .card { background: rgba(30,41,59,.6); border: 1px solid rgba(71,85,105,.7); border-radius: 1rem; padding: 1.25rem; box-shadow: 0 10px 25px -10px rgba(0,0,0,.5); }
+  @media (min-width: 640px) { .card { padding: 1.5rem; } }
+  .input { width: 100%; border-radius: .5rem; background: #0f172a; border: 1px solid #475569; padding: .5rem .75rem; font-size: .875rem; color: #fff; }
+  .input::placeholder { color: #64748b; }
+  .input:focus { outline: none; border-color: #22d3ee; box-shadow: 0 0 0 2px rgba(34,211,238,.45); }
+  .label { display: block; font-size: .7rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #94a3b8; margin-bottom: .25rem; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; border-radius: .5rem; padding: .5rem 1rem; font-size: .875rem; font-weight: 600; transition: all .15s; cursor: pointer; }
+  .btn:focus-visible { outline: 2px solid #22d3ee; outline-offset: 2px; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-primary { background: linear-gradient(90deg,#06b6d4,#6366f1); color: #fff; }
+  .btn-primary:hover:not(:disabled) { filter: brightness(1.12); transform: translateY(-1px); }
+  .btn-ghost { border: 1px solid #475569; color: #e2e8f0; background: transparent; }
+  .btn-ghost:hover:not(:disabled) { background: rgba(51,65,85,.6); }
+  .btn-danger { border: 1px solid rgba(244,63,94,.4); color: #fda4af; background: transparent; }
+  .btn-danger:hover:not(:disabled) { background: rgba(244,63,94,.12); }
+  .btn-sm { padding: .25rem .6rem; font-size: .75rem; }
+  .dropzone { border: 2px dashed #475569; border-radius: 1rem; transition: all .2s; cursor: pointer; }
+  .dropzone:hover, .dropzone.drag-over, .dropzone:focus-within { border-color: #22d3ee; background: rgba(34,211,238,.06); }
+  .dropzone.drag-over { transform: scale(1.01); }
+  .nav-btn { padding: .5rem .9rem; border-radius: .6rem; font-size: .875rem; font-weight: 600; color: #cbd5e1; white-space: nowrap; transition: all .15s; border: 1px solid transparent; }
+  .nav-btn:hover { color: #fff; background: rgba(51,65,85,.5); }
+  .nav-btn.active { color: #67e8f9; background: rgba(34,211,238,.12); border-color: rgba(34,211,238,.4); }
+  .fade-in { animation: fadeIn .3s ease both; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .toast { animation: fadeIn .2s ease both; }
+  table { border-collapse: collapse; width: 100%; }
+  th { text-align: left; font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; font-weight: 600; padding: .5rem .75rem; border-bottom: 1px solid #334155; white-space: nowrap; }
+  td { padding: .6rem .75rem; border-bottom: 1px solid rgba(51,65,85,.6); font-size: .85rem; vertical-align: top; }
+  tbody tr:hover { background: rgba(51,65,85,.25); }
+  .scroll-thin::-webkit-scrollbar { height: 8px; width: 8px; }
+  .scroll-thin::-webkit-scrollbar-thumb { background: #475569; border-radius: 8px; }
+  dialog { background: transparent; padding: 0; border: 0; max-width: 100vw; }
+  dialog::backdrop { background: rgba(2,6,23,.8); backdrop-filter: blur(3px); }
+  #qr-reader video { border-radius: .75rem; }
+  .qr-frame { background: #fff; padding: 14px; border-radius: .75rem; display: inline-block; line-height: 0; }
+  .qr-frame img, .qr-frame canvas { max-width: 100%; height: auto; }
+</style>
+</head>
+<body class="text-slate-100 antialiased font-sans">
+
+<a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-cyan-500 focus:text-slate-900 focus:px-3 focus:py-2">Skip to content</a>
+
+<header class="sticky top-0 z-40 border-b border-slate-700/70 bg-slate-900/85 backdrop-blur">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
+    <div class="flex items-center gap-3">
+      <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-cyan-400 to-indigo-500 grid place-items-center shadow-lg shadow-cyan-500/20">
+        <svg class="h-6 w-6 text-slate-900" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.4 9-8 11-4.6-2-8-6-8-11V5l8-3z"/><path d="M8.5 12l2.5 2.5L16 9.5"/></svg>
+      </div>
+      <div>
+        <h1 class="text-lg font-extrabold tracking-tight leading-none">VERIFIX</h1>
+        <p class="text-[11px] text-slate-400 leading-tight mt-1">Digital forensics &amp; document authenticity · 100% client-side</p>
+      </div>
+    </div>
+    <nav aria-label="Primary" class="flex gap-1 overflow-x-auto scroll-thin sm:ml-auto -mx-1 px-1">
+      <button class="nav-btn" data-nav="analyzer">🔬 Forensics</button>
+      <button class="nav-btn" data-nav="register">🧾 Register</button>
+      <button class="nav-btn" data-nav="verify">✅ Verify</button>
+      <button class="nav-btn" data-nav="history">📊 History</button>
+    </nav>
+  </div>
+</header>
+
+<main id="main" class="max-w-6xl mx-auto px-4 py-8">
+
+<section id="view-analyzer" data-view aria-labelledby="h-analyzer">
+  <div class="mb-6">
+    <h2 id="h-analyzer" class="text-2xl font-bold">Digital File Forensics Analyzer</h2>
+    <p class="text-slate-400 text-sm mt-1">Files are read in your browser's memory only. Nothing is uploaded anywhere.</p>
+  </div>
+
+  <label id="dropzone" for="file-input" class="dropzone block p-10 text-center">
+    <input id="file-input" type="file" class="sr-only">
+    <svg class="mx-auto h-12 w-12 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5"/><path d="M4 15v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg>
+    <p class="mt-3 text-base font-semibold">Drag &amp; drop a file here, or <span class="text-cyan-300 underline">browse</span></p>
+    <p class="text-xs text-slate-400 mt-1">Any file type · SHA-256 · MD5 · magic-byte check · EXIF · entropy</p>
+  </label>
+
+  <div id="progress-wrap" class="hidden mt-4 card" role="status" aria-live="polite">
+    <div class="flex justify-between text-sm mb-2"><span id="progress-label">Reading file…</span><span id="progress-pct" class="font-mono text-cyan-300">0%</span></div>
+    <div class="h-2 rounded-full bg-slate-700 overflow-hidden"><div id="progress-bar" class="h-full bg-gradient-to-r from-cyan-400 to-indigo-500 transition-all" style="width:0%"></div></div>
+  </div>
+
+  <div id="analysis-result" class="mt-6" aria-live="polite"></div>
+</section>
+
+<section id="view-register" data-view class="hidden" aria-labelledby="h-register">
+  <div class="mb-6">
+    <h2 id="h-register" class="text-2xl font-bold">Certificate Registration <span class="text-xs align-middle ml-2 px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-400/40">Admin</span></h2>
+    <p class="text-slate-400 text-sm mt-1">Records are stored in this browser's <code class="text-cyan-300">localStorage</code>, which simulates the database.</p>
+  </div>
+
+  <div class="grid lg:grid-cols-5 gap-6">
+    <form id="register-form" class="card lg:col-span-3 space-y-4" novalidate>
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label class="label" for="f-name">Student name</label>
+          <input id="f-name" class="input" required maxlength="120" placeholder="e.g. Anita Menon" autocomplete="off">
+        </div>
+        <div>
+          <label class="label" for="f-roll">Roll No / Reg ID</label>
+          <input id="f-roll" class="input" required maxlength="60" placeholder="e.g. CS21B045" autocomplete="off">
+        </div>
+        <div>
+          <label class="label" for="f-date">Issue date</label>
+          <input id="f-date" type="date" class="input" required>
+        </div>
+        <div>
+          <label class="label" for="f-title">Certificate title</label>
+          <input id="f-title" class="input" required maxlength="160" placeholder="e.g. B.Tech Degree Certificate" autocomplete="off">
+        </div>
+      </div>
+
+      <div>
+        <label class="label" for="f-hash">File hash (SHA-256)</label>
+        <input id="f-hash" class="input font-mono text-xs" required maxlength="64" placeholder="64 hexadecimal characters" spellcheck="false" autocomplete="off">
+        <p id="hash-source" class="text-xs text-slate-400 mt-1">Fill from the analyzer, hash a file, or generate from the details above.</p>
+        <div class="flex flex-wrap gap-2 mt-3">
+          <button type="button" id="btn-use-last" class="btn btn-ghost btn-sm">↩ Use last analyzed file</button>
+          <label class="btn btn-ghost btn-sm cursor-pointer">📄 Hash a file…<input id="reg-file" type="file" class="sr-only"></label>
+          <button type="button" id="btn-gen-hash" class="btn btn-ghost btn-sm">🎲 Generate from details</button>
+        </div>
+      </div>
+
+      <p id="form-error" class="hidden text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2" role="alert"></p>
+
+      <div class="flex flex-wrap gap-3 pt-2">
+        <button type="submit" class="btn btn-primary">Register &amp; generate QR</button>
+        <button type="reset" id="btn-reset" class="btn btn-ghost">Reset</button>
+      </div>
+    </form>
+
+    <div class="lg:col-span-2">
+      <div id="qr-panel" class="card text-center">
+        <div class="py-10 text-slate-400 text-sm">
+          <div class="text-4xl mb-2" aria-hidden="true">▦</div>
+          The verification QR code appears here after you register a certificate.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="view-verify" data-view class="hidden" aria-labelledby="h-verify">
+  <div class="mb-6">
+    <h2 id="h-verify" class="text-2xl font-bold">Public Verification Portal</h2>
+    <p class="text-slate-400 text-sm mt-1">Check a document, a SHA-256 hash, or a QR code against the registered certificates.</p>
+  </div>
+
+  <div class="grid lg:grid-cols-2 gap-6">
+    <div class="card space-y-4">
+      <h3 class="font-semibold text-lg flex items-center gap-2"><span aria-hidden="true">📄</span> Verify by document or hash</h3>
+      <label id="verify-drop" for="verify-file" class="dropzone block p-6 text-center">
+        <input id="verify-file" type="file" class="sr-only">
+        <p class="font-medium">Drop a certificate (PDF / image) or <span class="text-cyan-300 underline">browse</span></p>
+        <p class="text-xs text-slate-400 mt-1">Its SHA-256 is computed locally and matched to the register.</p>
+      </label>
+      <div class="flex items-center gap-3 text-xs text-slate-500"><span class="h-px flex-1 bg-slate-700"></span>OR<span class="h-px flex-1 bg-slate-700"></span></div>
+      <form id="hash-form" class="flex gap-2">
+        <label for="verify-hash" class="sr-only">SHA-256 hash</label>
+        <input id="verify-hash" class="input font-mono text-xs" placeholder="Paste SHA-256 hash (64 hex characters)" spellcheck="false" autocomplete="off">
+        <button class="btn btn-primary shrink-0" type="submit">Verify</button>
+      </form>
+    </div>
+
+    <div class="card space-y-4">
+      <h3 class="font-semibold text-lg flex items-center gap-2"><span aria-hidden="true">▦</span> Verify by QR code</h3>
+      <div class="flex flex-wrap gap-2">
+        <button id="btn-cam-start" class="btn btn-primary btn-sm" type="button">📷 Start camera</button>
+        <button id="btn-cam-stop" class="btn btn-ghost btn-sm hidden" type="button">⏹ Stop camera</button>
+        <label class="btn btn-ghost btn-sm cursor-pointer">🖼 Upload QR image<input id="qr-file" type="file" accept="image
+
+const $  = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const hex = u8 => [...u8].map(b => b.toString(16).padStart(2, '0')).join('');
+const short = (h, n = 12) => h ? h.slice(0, n) + '…' : '—';
+const fmtSize = n => {
+  if (n < 1024) return `${n} B`;
+  const u = ['KB','MB','GB','TB']; let i = -1;
+  do { n /= 1024; i++; } while (n >= 1024 && i < u.length - 1);
+  return `${n.toFixed(2)} ${u[i]}`;
+};
+const fmtDT = t => { try { return new Date(t).toLocaleString(); } catch { return '—'; } };
+const todayLocal = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+
+const KEYS = { records: 'verifix.records', sessions: 'verifix.sessions', vlog: 'verifix.verifications' };
+const store = {
+  get(k, d) { try { const v = JSON.parse(localStorage.getItem(k)); return v ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { toast('Browser storage is unavailable or full.', 'error'); return false; } }
+};
+
+function toast(msg, type = 'info') {
+  const colors = { info: 'border-cyan-400/50 bg-slate-800', success: 'border-emerald-400/50 bg-slate-800', error: 'border-rose-400/60 bg-slate-800' };
+  const el = document.createElement('div');
+  el.className = `toast rounded-lg border px-4 py-3 text-sm shadow-xl ${colors[type] || colors.info}`;
+  el.textContent = msg;
+  $('#toasts').appendChild(el);
+  setTimeout(() => el.remove(), type === 'error' ? 6000 : 3000);
+}
+async function copyText(t) {
+  try { await navigator.clipboard.writeText(t); toast('Copied to clipboard', 'success'); }
+  catch { const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); toast('Copied to clipboard', 'success'); } catch { toast('Copy failed', 'error'); } ta.remove(); }
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-copy]');
+  if (b) copyText(b.dataset.copy);
+});
+
+const LIBS = {
+  qrcode:   'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',
+  exif:     'https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.min.js',
+  html5qr:  'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
+  jsqr:     'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js',
+  cryptojs: 'https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js'
+};
+const libPromises = {};
+function loadLib(name, isReady) {
+  if (isReady && isReady()) return Promise.resolve();
+  if (libPromises[name]) return libPromises[name];
+  return libPromises[name] = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = LIBS[name]; s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => { delete libPromises[name]; s.remove(); reject(new Error(`Could not load library "${name}" (offline?)`)); };
+    document.head.appendChild(s);
+  });
+}
+const needQR    = () => loadLib('qrcode',  () => window.QRCode);
+const needExif  = () => loadLib('exif',    () => window.EXIF);
+const needJsQR  = () => loadLib('jsqr',    () => window.jsQR);
+const needH5QR  = () => loadLib('html5qr', () => window.Html5Qrcode);
+window.addEventListener('load', () => { needQR().catch(() => {}); needExif().catch(() => {}); needJsQR().catch(() => {}); });
+
+async function sha256Hex(buf) {
+  if (window.crypto && crypto.subtle) {
+    return hex(new Uint8Array(await crypto.subtle.digest('SHA-256', buf)));
+  }
+  await loadLib('cryptojs', () => window.CryptoJS);          // fallback for non-secure contexts
+  return CryptoJS.SHA256(CryptoJS.lib.WordArray.create(buf)).toString();
+}
+function md5Hex(bytes) {
+  const S = [7,12,17,22,5,9,14,20,4,11,16,23,6,10,15,21];
+  const K = new Int32Array(64);
+  for (let i = 0; i < 64; i++) K[i] = Math.floor(Math.abs(Math.sin(i + 1)) * 4294967296) | 0;
+  const len = bytes.length, blocks = ((len + 8) >>> 6) + 1;
+  const buf = new Uint8Array(blocks * 64);
+  buf.set(bytes); buf[len] = 0x80;
+  const dv = new DataView(buf.buffer);
+  dv.setUint32(blocks * 64 - 8, (len << 3) >>> 0, true);
+  dv.setUint32(blocks * 64 - 4, Math.floor(len / 0x20000000), true);
+  let a0 = 0x67452301, b0 = 0xefcdab89 | 0, c0 = 0x98badcfe | 0, d0 = 0x10325476;
+  const M = new Int32Array(16);
+  for (let blk = 0; blk < blocks; blk++) {
+    for (let j = 0; j < 16; j++) M[j] = dv.getInt32(blk * 64 + j * 4, true);
+    let A = a0, B = b0, C = c0, D = d0;
+    for (let i = 0; i < 64; i++) {
+      let F, g;
+      if (i < 16)      { F = (B & C) | (~B & D); g = i; }
+      else if (i < 32) { F = (D & B) | (~D & C); g = (5 * i + 1) % 16; }
+      else if (i < 48) { F = B ^ C ^ D;          g = (3 * i + 5) % 16; }
+      else             { F = C ^ (B | ~D);       g = (7 * i) % 16; }
+      F = (F + A + K[i] + M[g]) | 0;
+      A = D; D = C; C = B;
+      const s = S[(i >> 4) * 4 + (i % 4)];
+      B = (B + ((F << s) | (F >>> (32 - s)))) | 0;
+    }
+    a0 = (a0 + A) | 0; b0 = (b0 + B) | 0; c0 = (c0 + C) | 0; d0 = (d0 + D) | 0;
+  }
+  const out = new Uint8Array(16), o = new DataView(out.buffer);
+  o.setInt32(0, a0, true); o.setInt32(4, b0, true); o.setInt32(8, c0, true); o.setInt32(12, d0, true);
+  return hex(out);
+}
+const sha256OfString = s => sha256Hex(new TextEncoder().encode(s).buffer);
+const isSha = s => /^[a-f0-9]{64}$/.test(s);
+
+function readFile(file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onprogress = e => { if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total); };
+    fr.onload = () => resolve(fr.result);
+    fr.onerror = () => reject(fr.error || new Error('Unable to read file'));
+    fr.readAsArrayBuffer(file);
+  });
+}
+const nextFrame = () => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
+
+const startsWith = (b, sig, off = 0) => sig.every((v, i) => b[off + i] === v);
+const ascii = s => [...s].map(c => c.charCodeAt(0));
+const SIGS = [
+  { type: 'JPEG image', hex: 'FF D8 FF', exts: ['jpg','jpeg','jpe','jfif'], test: b => startsWith(b, [0xFF,0xD8,0xFF]) },
+  { type: 'PNG image', hex: '89 50 4E 47 0D 0A 1A 0A', exts: ['png'], test: b => startsWith(b, [0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A]) },
+  { type: 'GIF image', hex: '47 49 46 38', exts: ['gif'], test: b => startsWith(b, ascii('GIF8')) },
+  { type: 'BMP image', hex: '42 4D', exts: ['bmp'], test: b => startsWith(b, [0x42,0x4D]) },
+  { type: 'WebP image', hex: '52 49 46 46 ?? ?? ?? ?? 57 45 42 50', exts: ['webp'], test: b => startsWith(b, ascii('RIFF')) && startsWith(b, ascii('WEBP'), 8) },
+  { type: 'TIFF image', hex: '49 49 2A 00 / 4D 4D 00 2A', exts: ['tif','tiff'], test: b => startsWith(b, [0x49,0x49,0x2A,0x00]) || startsWith(b, [0x4D,0x4D,0x00,0x2A]) },
+  { type: 'ICO icon', hex: '00 00 01 00', exts: ['ico'], test: b => startsWith(b, [0,0,1,0]) },
+  { type: 'PDF document', hex: '25 50 44 46', exts: ['pdf'], test: b => startsWith(b, ascii('%PDF')) },
+  { type: 'ZIP container (ZIP / OOXML / ODF / EPUB)', hex: '50 4B 03 04', exts: ['zip','docx','xlsx','pptx','odt','ods','odp','epub','jar','apk'], test: b => startsWith(b, [0x50,0x4B,0x03,0x04]) || startsWith(b, [0x50,0x4B,0x05,0x06]) },
+  { type: 'OLE2 legacy Office', hex: 'D0 CF 11 E0 A1 B1 1A E1', exts: ['doc','xls','ppt','msi'], test: b => startsWith(b, [0xD0,0xCF,0x11,0xE0,0xA1,0xB1,0x1A,0xE1]) },
+  { type: 'GZIP archive', hex: '1F 8B', exts: ['gz','tgz'], test: b => startsWith(b, [0x1F,0x8B]) },
+  { type: 'RAR archive', hex: '52 61 72 21 1A 07', exts: ['rar'], test: b => startsWith(b, [0x52,0x61,0x72,0x21,0x1A,0x07]) },
+  { type: '7-Zip archive', hex: '37 7A BC AF 27 1C', exts: ['7z'], test: b => startsWith(b, [0x37,0x7A,0xBC,0xAF,0x27,0x1C]) },
+  { type: 'MP3 audio', hex: '49 44 33 / FF FB', exts: ['mp3'], test: b => startsWith(b, ascii('ID3')) || (b[0] === 0xFF && (b[1] & 0xE0) === 0xE0) },
+  { type: 'ISO media (MP4 / MOV / HEIC / AVIF)', hex: '?? ?? ?? ?? 66 74 79 70', exts: ['mp4','m4a','m4v','mov','3gp','heic','heif','avif'], test: b => startsWith(b, ascii('ftyp'), 4) },
+  { type: 'WAV audio', hex: '52 49 46 46 ?? ?? ?? ?? 57 41 56 45', exts: ['wav'], test: b => startsWith(b, ascii('RIFF')) && startsWith(b, ascii('WAVE'), 8) },
+  { type: 'AVI video', hex: '52 49 46 46 ?? ?? ?? ?? 41 56 49 20', exts: ['avi'], test: b => startsWith(b, ascii('RIFF')) && startsWith(b, ascii('AVI '), 8) },
+  { type: 'Ogg media', hex: '4F 67 67 53', exts: ['ogg','oga','ogv','opus'], test: b => startsWith(b, ascii('OggS')) },
+  { type: 'FLAC audio', hex: '66 4C 61 43', exts: ['flac'], test: b => startsWith(b, ascii('fLaC')) },
+  { type: 'Windows executable (PE)', hex: '4D 5A', exts: ['exe','dll','sys','scr'], danger: true, test: b => startsWith(b, [0x4D,0x5A]) },
+  { type: 'ELF executable', hex: '7F 45 4C 46', exts: ['elf','so','o'], danger: true, test: b => startsWith(b, [0x7F,0x45,0x4C,0x46]) },
+  { type: 'SQLite database', hex: '53 51 4C 69 74 65 20 66 6F 72 6D 61 74 20 33 00', exts: ['db','sqlite','sqlite3'], test: b => startsWith(b, ascii('SQLite format 3\0')) }
+];
+const TEXT_EXTS = ['txt','csv','tsv','json','md','html','htm','xml','js','mjs','css','log','svg','yml','yaml','ini','rtf','tex','py','java','c','cpp','h','sh','bat','sql'];
+const detectSig = b => SIGS.find(s => b.length && s.test(b)) || null;
+function looksLikeText(b) {
+  const n = Math.min(b.length, 4096); if (!n) return true;
+  let bad = 0;
+  for (let i = 0; i < n; i++) { const c = b[i]; if (c === 0) return false; if (c < 9 || (c > 13 && c < 32)) bad++; }
+  return bad / n < 0.02;
+}
+function lastIndexOfSeq(b, seq) {
+  outer: for (let i = b.length - seq.length; i >= 0; i--) { for (let j = 0; j < seq.length; j++) if (b[i + j] !== seq[j]) continue outer; return i; }
+  return -1;
+}
+function countSeq(b, seq, from = 0) {
+  let c = 0;
+  outer: for (let i = from; i <= b.length - seq.length; i++) { if (b[i] !== seq[0]) continue; for (let j = 1; j < seq.length; j++) if (b[i + j] !== seq[j]) continue outer; c++; i += seq.length - 1; }
+  return c;
+}
+function entropy(b) {
+  if (!b.length) return 0;
+  const cnt = new Uint32Array(256);
+  for (let i = 0; i < b.length; i++) cnt[b[i]]++;
+  let h = 0; for (let i = 0; i < 256; i++) if (cnt[i]) { const p = cnt[i] / b.length; h -= p * Math.log2(p); }
+  return h;
+}
+function integrityCheck(name, bytes, sig, ent) {
+  const checks = [];
+  const add = (label, status, detail) => checks.push({ label, status, detail });
+  const ext = (name.includes('.') ? name.split('.').pop() : '').toLowerCase();
+  const header = hex(bytes.slice(0, 8)).toUpperCase().replace(/(..)/g, '$1 ').trim() || '(empty)';
+
+  if (!bytes.length) add('File content', 'warn', 'The file is empty (0 bytes).');
+  if (!ext) {
+    add('Extension / signature', 'warn', sig ? `No file extension. Content looks like ${sig.type}.` : 'No file extension and no recognised signature.');
+  } else if (sig) {
+    if (sig.exts.includes(ext)) add('Extension / signature', 'pass', `.${ext} matches the ${sig.type} signature (${sig.hex}).`);
+    else {
+      const claimed = SIGS.find(s => s.exts.includes(ext));
+      add('Extension / signature', 'fail',
+        claimed ? `Extension .${ext} implies ${claimed.type} (${claimed.hex}) but the content is ${sig.type}. The file may have been renamed or disguised.`
+                : `Extension .${ext} does not match the detected content: ${sig.type}.`);
+      if (sig.danger) add('Executable content', 'fail', `Executable code signature found in a file named .${ext}. Treat it as untrusted.`);
+    }
+  } else {
+    const claimed = SIGS.find(s => s.exts.includes(ext));
+    if (claimed) add('Extension / signature', 'fail', `Extension .${ext} requires ${claimed.type} (${claimed.hex}) but the file starts with ${header}. It is corrupted, truncated or not a real .${ext} file.`);
+    else if (looksLikeText(bytes)) add('Extension / signature', 'pass', `.${ext}: no magic bytes expected; content is plain text.`);
+    else add('Extension / signature', 'info', `Unknown binary signature (${header}) for .${ext}; no reference signature available.`);
+  }
+  const n = bytes.length;
+  if (sig && sig.type === 'JPEG image') {
+    const eoi = lastIndexOfSeq(bytes, [0xFF, 0xD9]);
+    if (eoi < 0) add('JPEG end marker', 'fail', 'No FF D9 end-of-image marker: the file is truncated or damaged.');
+    else {
+      const tail = bytes.slice(eoi + 2); const nz = tail.some(v => v !== 0);
+      if (nz) add('Trailing data', 'warn', `${tail.length} byte(s) of data after the JPEG end marker. This can indicate an appended or embedded payload.`);
+      else add('JPEG end marker', 'pass', 'Valid FF D9 end-of-image marker at end of file.');
+    }
+  }
+  if (sig && sig.type === 'PNG image') {
+    const iend = lastIndexOfSeq(bytes, ascii('IEND'));
+    if (iend < 0) add('PNG end chunk', 'fail', 'No IEND chunk: the file is truncated or damaged.');
+    else if (n - (iend + 8) > 0) add('Trailing data', 'warn', `${n - (iend + 8)} byte(s) after the PNG IEND chunk. This can indicate appended data.`);
+    else add('PNG end chunk', 'pass', 'IEND chunk terminates the file correctly.');
+  }
+  if (sig && sig.type === 'PDF document') {
+    const tail = bytes.slice(Math.max(0, n - 2048));
+    const eofs = countSeq(bytes, ascii('%%EOF'));
+    if (!countSeq(tail, ascii('%%EOF'))) add('PDF end marker', 'warn', 'No %%EOF marker near the end of the file: it may be truncated or have trailing data.');
+    else add('PDF end marker', 'pass', '%%EOF marker present at end of file.');
+    if (eofs > 1) add('PDF revisions', 'warn', `${eofs} %%EOF markers found. The PDF has incremental updates, so it may have been edited after it was first created.`);
+    if (countSeq(bytes, ascii('/JavaScript')) || countSeq(bytes, ascii('/JS '))) add('PDF active content', 'warn', 'The PDF contains JavaScript actions.');
+  }
+  if (sig && sig.type.startsWith('ZIP')) {
+    const eocd = lastIndexOfSeq(bytes.slice(Math.max(0, n - 70000)), [0x50, 0x4B, 0x05, 0x06]);
+    add('ZIP directory', eocd >= 0 ? 'pass' : 'fail', eocd >= 0 ? 'End-of-central-directory record found.' : 'End-of-central-directory record missing: archive is truncated or corrupted.');
+  }
+  const entTxt = `${ent.toFixed(3)} bits/byte`;
+  if (ext && TEXT_EXTS.includes(ext) && ent > 7.2) add('Entropy', 'warn', `${entTxt} is very high for a text file. It may be encrypted, compressed or packed.`);
+  else add('Entropy', 'info', `${entTxt}. ${ent > 7.5 ? 'Typical of compressed or encrypted data.' : ent < 4 ? 'Low: structured or repetitive content.' : 'Moderate.'}`);
+
+  const status = checks.some(c => c.status === 'fail') ? 'fail' : checks.some(c => c.status === 'warn') ? 'warn' : 'pass';
+  return { status, checks, ext, header };
+}
+
+function readExif(file) {
+  return new Promise(async resolve => {
+    try {
+      await needExif();
+      const t = setTimeout(() => resolve({}), 4000);
+      const ok = EXIF.getData(file, function () { clearTimeout(t); resolve(EXIF.getAllTags(this) || {}); });
+      if (ok === false) { clearTimeout(t); resolve({}); }
+    } catch { resolve({}); }
+  });
+}
+function exifValue(v) {
+  if (v == null) return '';
+  if (Array.isArray(v) || (v && v.length !== undefined && typeof v !== 'string')) {
+    const a = [...v]; if (a.length > 8) return `[${a.length} values]`;
+    return a.map(exifValue).join(', ');
+  }
+  if (typeof v === 'object') { if ('numerator' in v && 'denominator' in v) return v.denominator ? String(+(v.numerator / v.denominator).toFixed(4)) : String(v.numerator); return JSON.stringify(v); }
+  return String(v);
+}
+function exifRows(tags) {
+  const skip = new Set(['MakerNote', 'UserComment', 'thumbnail', 'PrintIM', 'ComponentsConfiguration', 'FileSource', 'SceneType', 'ExifVersion', 'FlashpixVersion']);
+  const pri = ['Make','Model','Software','DateTime','DateTimeOriginal','DateTimeDigitized','Artist','Copyright','ExposureTime','FNumber','ISOSpeedRatings','FocalLength','Flash','Orientation','PixelXDimension','PixelYDimension','GPSLatitude','GPSLongitude'];
+  const rows = [];
+  const keys = Object.keys(tags).filter(k => !skip.has(k));
+  keys.sort((a, b) => { const ia = pri.indexOf(a), ib = pri.indexOf(b); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b); });
+  for (const k of keys) {
+    let val = exifValue(tags[k]);
+    if ((k === 'GPSLatitude' || k === 'GPSLongitude') && Array.isArray(tags[k]) && tags[k].length === 3) {
+      const d = tags[k].map(Number); let dec = d[0] + d[1] / 60 + d[2] / 3600;
+      const ref = tags[k === 'GPSLatitude' ? 'GPSLatitudeRef' : 'GPSLongitudeRef'];
+      if (ref === 'S' || ref === 'W') dec = -dec;
+      val = `${dec.toFixed(6)}° (${val})`;
+    }
+    if (val !== '') rows.push([k, val]);
+  }
+  return rows;
+}
+
+const state = { last: null };
+
+const VIEWS = ['analyzer', 'register', 'verify', 'history'];
+function show(view, updateHash = true) {
+  if (!VIEWS.includes(view)) view = 'analyzer';
+  VIEWS.forEach(v => $('#view-' + v).classList.toggle('hidden', v !== view));
+  $$('[data-nav]').forEach(b => { const on = b.dataset.nav === view; b.classList.toggle('active', on); b.setAttribute('aria-current', on ? 'page' : 'false'); });
+  if (view !== 'verify') stopCamera();
+  if (view === 'history') renderHistory();
+  if (view === 'register') updateLastHint();
+  if (updateHash) history.replaceState(null, '', '#' + view);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+$$('[data-nav]').forEach(b => b.addEventListener('click', () => show(b.dataset.nav)));
+window.addEventListener('hashchange', () => show(location.hash.slice(1), false));
+
+function wireDrop(zone, input, handler) {
+  ['dragenter', 'dragover'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.add('drag-over'); }));
+  ['dragleave', 'drop'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.remove('drag-over'); }));
+  zone.addEventListener('drop', e => { const f = e.dataTransfer?.files?.[0]; if (f) handler(f); });
+  input.addEventListener('change', () => { const f = input.files[0]; if (f) handler(f); input.value = ''; });
+}
+['dragover', 'drop'].forEach(ev => window.addEventListener(ev, e => e.preventDefault()));
+
+function setProgress(p, label) {
+  $('#progress-wrap').classList.remove('hidden');
+  const pct = Math.round(p * 100);
+  $('#progress-bar').style.width = pct + '%';
+  $('#progress-pct').textContent = pct + '%';
+  if (label) $('#progress-label').textContent = label;
+}
+const hideProgress = () => $('#progress-wrap').classList.add('hidden');
+
+async function analyzeFile(file) {
+  $('#analysis-result').innerHTML = '';
+  try {
+    setProgress(0, `Reading ${file.name}…`);
+    const buf = await readFile(file, p => setProgress(p * 0.8));
+    const bytes = new Uint8Array(buf);
+    setProgress(0.85, 'Computing SHA-256…'); await nextFrame();
+    const sha256 = await sha256Hex(buf);
+    setProgress(0.92, 'Computing MD5…'); await nextFrame();
+    const md5 = md5Hex(bytes);
+    setProgress(0.97, 'Running integrity checks…'); await nextFrame();
+    const sig = detectSig(bytes);
+    const ent = entropy(bytes);
+    const integrity = integrityCheck(file.name, bytes, sig, ent);
+
+    let exif = null;
+    if (sig && sig.type === 'JPEG image') {
+      exif = await readExif(file);
+      const rows = exifRows(exif);
+      const sw = String(exif.Software || '');
+      if (!rows.length) integrity.checks.push({ label: 'EXIF metadata', status: 'info', detail: 'No EXIF data. It may have been stripped, or the image is a screenshot or export.' });
+      else if (/photoshop|gimp|lightroom|snapseed|canva|pixlr|paint\.net|affinity|picsart/i.test(sw)) {
+        integrity.checks.push({ label: 'EXIF Software tag', status: 'warn', detail: `Image was processed by "${sw}". It is not an untouched camera original.` });
+        if (integrity.status === 'pass') integrity.status = 'warn';
+      }
+    }
+    const analysis = {
+      id: Date.now(), at: Date.now(), name: file.name, size: file.size, type: file.type || 'unknown',
+      lastModified: file.lastModified, sha256, md5, detected: sig ? sig.type : 'No known signature',
+      integrity, entropy: ent, exifRows: exif ? exifRows(exif) : null, isJpeg: !!(sig && sig.type === 'JPEG image')
+    };
+    state.last = { name: file.name, sha256, at: analysis.at };
+    renderAnalysis(analysis, bytes);
+    const sessions = store.get(KEYS.sessions, []);
+    sessions.unshift({ id: analysis.id, at: analysis.at, name: file.name, size: file.size, sha256, md5, status: integrity.status, detected: analysis.detected });
+    store.set(KEYS.sessions, sessions.slice(0, 100));
+    setProgress(1, 'Done'); setTimeout(hideProgress, 500);
+  } catch (err) {
+    hideProgress();
+    toast('Analysis failed: ' + (err.message || err), 'error');
+  }
+}
+
+const STATUS_STYLE = {
+  pass: { dot: 'bg-emerald-500/20 text-emerald-300', icon: '✓' },
+  warn: { dot: 'bg-amber-500/20 text-amber-300', icon: '!' },
+  fail: { dot: 'bg-rose-500/20 text-rose-300', icon: '✕' },
+  info: { dot: 'bg-slate-600/40 text-slate-300', icon: 'i' }
+};
+function renderAnalysis(a, bytes) {
+  const verdict = {
+    pass: ['bg-emerald-500/15 text-emerald-300 ring-emerald-400/40', 'INTEGRITY CHECKS PASSED'],
+    warn: ['bg-amber-500/15 text-amber-300 ring-amber-400/40', 'REVIEW RECOMMENDED'],
+    fail: ['bg-rose-500/15 text-rose-300 ring-rose-400/40', 'ANOMALY DETECTED']
+  }[a.integrity.status];
+  const meta = [
+    ['File name', a.name], ['Size', `${fmtSize(a.size)} (${a.size.toLocaleString()} bytes)`], ['MIME type (browser)', a.type],
+    ['Detected content', a.detected], ['Last modified', fmtDT(a.lastModified)], ['File header (hex)', hex(bytes.slice(0, 16)).toUpperCase().replace(/(..)/g, '$1 ').trim() || '—']
+  ];
+  const hashCard = (label, val) => `
+    <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+      <div class="flex items-center justify-between mb-1"><span class="label !mb-0">${label}</span>
+        <button class="btn btn-ghost btn-sm" data-copy="${esc(val)}" type="button">Copy</button></div>
+      <p class="font-mono text-xs break-all text-cyan-200">${esc(val)}</p>
+    </div>`;
+  $('#analysis-result').innerHTML = `
+  <div class="space-y-6 fade-in">
+    <div class="card flex flex-col sm:flex-row sm:items-center gap-4">
+      <div class="min-w-0">
+        <p class="label">Analysis complete</p>
+        <p class="text-lg font-semibold truncate">${esc(a.name)}</p>
+      </div>
+      <span class="sm:ml-auto inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-bold ring-1 ${verdict[0]}">${verdict[1]}</span>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-4">${hashCard('SHA-256', a.sha256)}${hashCard('MD5 (legacy checksum)', a.md5)}</div>
+
+    <div class="grid lg:grid-cols-2 gap-6">
+      <div class="card">
+        <h3 class="font-semibold mb-3">File metadata</h3>
+        <dl class="divide-y divide-slate-700/60 text-sm">
+          ${meta.map(([k, v]) => `<div class="py-2 grid grid-cols-3 gap-3"><dt class="text-slate-400">${k}</dt><dd class="col-span-2 break-words ${k.includes('hex') ? 'font-mono text-xs' : ''}">${esc(v)}</dd></div>`).join('')}
+        </dl>
+      </div>
+      <div class="card">
+        <h3 class="font-semibold mb-3">Anomaly &amp; integrity checks</h3>
+        <ul class="space-y-3">
+          ${a.integrity.checks.map(c => `
+            <li class="flex gap-3">
+              <span class="h-6 w-6 shrink-0 rounded-full grid place-items-center text-xs font-bold ${STATUS_STYLE[c.status].dot}" aria-label="${c.status}">${STATUS_STYLE[c.status].icon}</span>
+              <div class="text-sm"><p class="font-medium">${esc(c.label)}</p><p class="text-slate-400">${esc(c.detail)}</p></div>
+            </li>`).join('')}
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 class="font-semibold mb-3">EXIF metadata</h3>
+      ${!a.isJpeg ? '<p class="text-sm text-slate-400">EXIF extraction applies to JPEG images. This file is not a JPEG.</p>'
+        : !a.exifRows.length ? '<p class="text-sm text-slate-400">No EXIF tags found in this image.</p>'
+        : `<div class="overflow-x-auto scroll-thin max-h-96"><table><thead><tr><th>Tag</th><th>Value</th></tr></thead><tbody>
+            ${a.exifRows.map(([k, v]) => `<tr><td class="font-mono text-xs text-cyan-300 whitespace-nowrap">${esc(k)}</td><td class="break-all">${esc(v)}</td></tr>`).join('')}
+          </tbody></table></div>`}
+    </div>
+
+    <div class="flex flex-wrap gap-3">
+      <button id="act-register" class="btn btn-primary" type="button">🧾 Register this file as a certificate</button>
+      <button id="act-verify" class="btn btn-ghost" type="button">✅ Verify this file</button>
+    </div>
+  </div>`;
+  $('#act-register').onclick = () => { fillHash(a.sha256, `From analyzer: ${a.name}`); if (!$('#f-title').value) $('#f-title').value = a.name.replace(/\.[^.]+$/, ''); show('register'); };
+  $('#act-verify').onclick = () => { verifyHash(a.sha256, `File “${a.name}”`, 'Document file'); show('verify'); };
+}
+wireDrop($('#dropzone'), $('#file-input'), analyzeFile);
+
+const getRecords = () => store.get(KEYS.records, []);
+const saveRecords = r => store.set(KEYS.records, r);
+
+function fillHash(h, source) {
+  $('#f-hash').value = h;
+  $('#hash-source').textContent = source || '';
+}
+function updateLastHint() {
+  const b = $('#btn-use-last');
+  b.disabled = !state.last;
+  b.title = state.last ? `Use hash of ${state.last.name}` : 'Analyze a file first';
+}
+$('#f-date').value = todayLocal();
+$('#btn-use-last').addEventListener('click', () => {
+  if (!state.last) return toast('Analyze a file first.', 'error');
+  fillHash(state.last.sha256, `From analyzer: ${state.last.name}`);
+  if (!$('#f-title').value) $('#f-title').value = state.last.name.replace(/\.[^.]+$/, '');
+});
+$('#reg-file').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  try { const h = await sha256Hex(await readFile(f)); fillHash(h, `Hashed file: ${f.name}`); }
+  catch (err) { toast('Could not hash file: ' + err.message, 'error'); }
+});
+$('#btn-gen-hash').addEventListener('click', async () => {
+  const name = $('#f-name').value.trim(), roll = $('#f-roll').value.trim(), date = $('#f-date').value, title = $('#f-title').value.trim();
+  if (!name || !roll || !title) return showFormError('Fill in name, roll no and title first so a hash can be generated from them.');
+  const salt = hex(crypto.getRandomValues(new Uint8Array(16)));
+  fillHash(await sha256OfString([name, roll, date, title, salt].join('|')), 'Generated from the record details plus a random salt. It identifies this record, not a specific file.');
+  showFormError('');
+});
+function showFormError(msg) { const e = $('#form-error'); e.textContent = msg; e.classList.toggle('hidden', !msg); }
+$('#btn-reset').addEventListener('click', () => setTimeout(() => { $('#f-date').value = todayLocal(); $('#hash-source').textContent = 'Fill from the analyzer, hash a file, or generate from the details above.'; showFormError(''); }, 0));
+
+const newId = () => 'VFX-' + hex(crypto.getRandomValues(new Uint8Array(4))).toUpperCase();
+const qrPayload = r => `verifix://verify?id=${encodeURIComponent(r.id)}&sha256=${r.hash}`;
+
+$('#register-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const rec = { name: $('#f-name').value.trim(), roll: $('#f-roll').value.trim(), issueDate: $('#f-date').value, title: $('#f-title').value.trim(), hash: $('#f-hash').value.trim().toLowerCase() };
+  if (!rec.name || !rec.roll || !rec.issueDate || !rec.title) return showFormError('Please complete all fields.');
+  if (!isSha(rec.hash)) return showFormError('The file hash must be exactly 64 hexadecimal characters (SHA-256).');
+  const records = getRecords();
+  const dup = records.find(r => r.hash === rec.hash);
+  if (dup) return showFormError(`This hash is already registered as ${dup.id} (${dup.name}).`);
+  let id; do { id = newId(); } while (records.some(r => r.id === id));
+  const record = { id, ...rec, createdAt: Date.now() };
+  records.unshift(record);
+  if (!saveRecords(records)) return;
+  showFormError('');
+  toast(`Registered ${id}`, 'success');
+  await renderQrBlock($('#qr-panel'), record);
+  $('#register-form').reset(); $('#f-date').value = todayLocal();
+  $('#hash-source').textContent = 'Fill from the analyzer, hash a file, or generate from the details above.';
+});
+
+async function renderQrBlock(container, rec) {
+  container.innerHTML = `
+    <div class="fade-in">
+      <p class="label">Verification QR</p>
+      <p class="font-mono text-cyan-300 font-semibold mb-3">${esc(rec.id)}</p>
+      <div class="qr-frame" id="qr-box-${esc(rec.id)}" aria-label="QR code for ${esc(rec.id)}"></div>
+      <dl class="text-left text-sm mt-4 divide-y divide-slate-700/60">
+        <div class="py-1.5 flex justify-between gap-3"><dt class="text-slate-400">Student</dt><dd class="text-right">${esc(rec.name)}</dd></div>
+        <div class="py-1.5 flex justify-between gap-3"><dt class="text-slate-400">Roll / Reg</dt><dd class="text-right">${esc(rec.roll)}</dd></div>
+        <div class="py-1.5 flex justify-between gap-3"><dt class="text-slate-400">Certificate</dt><dd class="text-right">${esc(rec.title)}</dd></div>
+        <div class="py-1.5 flex justify-between gap-3"><dt class="text-slate-400">Issued</dt><dd class="text-right">${esc(rec.issueDate)}</dd></div>
+      </dl>
+      <p class="font-mono text-[10px] text-slate-500 break-all mt-3 text-left" title="QR payload">${esc(qrPayload(rec))}</p>
+      <div class="flex flex-wrap gap-2 mt-4 justify-center">
+        <button class="btn btn-primary btn-sm" data-dl type="button">⬇ Download PNG</button>
+        <button class="btn btn-ghost btn-sm" data-copy="${esc(qrPayload(rec))}" type="button">Copy payload</button>
+      </div>
+    </div>`;
+  const box = container.querySelector('.qr-frame');
+  try {
+    await needQR();
+    new QRCode(box, { text: qrPayload(rec), width: 220, height: 220, colorDark: '#0f172a', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+  } catch (err) {
+    box.outerHTML = `<p class="text-rose-300 text-sm py-6">QR library failed to load (${esc(err.message)}). Check your connection and try again from History → QR.</p>`;
+    return;
+  }
+  container.querySelector('[data-dl]').addEventListener('click', () => downloadQr(box, rec));
+}
+function downloadQr(box, rec) {
+  const src = box.querySelector('canvas');
+  if (!src) return toast('QR not ready yet.', 'error');
+  const pad = 28, cap = 34, c = document.createElement('canvas');
+  c.width = src.width + pad * 2; c.height = src.height + pad * 2 + cap;
+  const x = c.getContext('2d');
+  x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+  x.drawImage(src, pad, pad);
+  x.fillStyle = '#0f172a'; x.font = 'bold 15px ui-monospace, Menlo, monospace'; x.textAlign = 'center';
+  x.fillText(rec.id, c.width / 2, c.height - 14);
+  const a = document.createElement('a'); a.href = c.toDataURL('image/png'); a.download = `${rec.id}-verifix-qr.png`; a.click();
+}
+
+function logVerification(method, ref, ok) {
+  const log = store.get(KEYS.vlog, []);
+  log.unshift({ at: Date.now(), method, ref, ok });
+  store.set(KEYS.vlog, log.slice(0, 200));
+}
+function renderVerdict({ ok, headline, message, record, method, notes = [], hash }) {
+  const style = ok
+    ? { ring: 'border-emerald-400/50 bg-emerald-500/10', badge: 'bg-emerald-500 text-emerald-950', icon: '✔' }
+    : { ring: 'border-rose-400/50 bg-rose-500/10', badge: 'bg-rose-500 text-rose-950', icon: '✖' };
+  $('#verify-result').innerHTML = `
+  <div class="card ${style.ring} fade-in" role="status">
+    <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+      <span class="inline-flex items-center gap-2 self-start rounded-full px-5 py-2 text-base font-extrabold tracking-wide ${style.badge}"><span aria-hidden="true">${style.icon}</span>${esc(headline)}</span>
+      <p class="text-sm text-slate-200 sm:flex-1">${esc(message)}</p>
+      <span class="text-xs text-slate-400">${esc(method)}</span>
+    </div>
+    ${record ? `
+    <dl class="grid sm:grid-cols-2 gap-x-8 text-sm mt-5 divide-y sm:divide-y-0 divide-slate-700/60">
+      ${[['Record ID', record.id], ['Student', record.name], ['Roll / Reg ID', record.roll], ['Certificate', record.title], ['Issue date', record.issueDate], ['Registered', fmtDT(record.createdAt)]]
+        .map(([k, v]) => `<div class="py-2 flex justify-between gap-4"><dt class="text-slate-400">${k}</dt><dd class="text-right font-medium">${esc(v)}</dd></div>`).join('')}
+    </dl>
+    <p class="font-mono text-[11px] text-slate-400 break-all mt-3">SHA-256: ${esc(record.hash)}</p>` : (hash ? `<p class="font-mono text-[11px] text-slate-400 break-all mt-4">Checked hash: ${esc(hash)}</p>` : '')}
+    ${notes.length ? `<ul class="mt-4 text-xs text-slate-400 list-disc pl-5 space-y-1">${notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
+  </div>`;
+  $('#verify-result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function verifyHash(hash, ref, method) {
+  hash = (hash || '').trim().toLowerCase();
+  if (!isSha(hash)) { toast('Enter a valid 64-character SHA-256 hash.', 'error'); return; }
+  const rec = getRecords().find(r => r.hash === hash);
+  logVerification(method, ref, !!rec);
+  if (rec) renderVerdict({ ok: true, headline: 'VERIFIED VALID', message: 'This document’s SHA-256 matches a registered certificate. The content is byte-identical to the original that was registered.', record: rec, method, hash });
+  else renderVerdict({ ok: false, headline: 'TAMPERED / UNVERIFIED', message: 'No registered certificate matches this hash. The document was altered after registration, was never registered, or is registered in a different browser or database.', method, hash,
+    notes: ['Even a one-byte change (re-saving, re-compressing, editing metadata) produces a completely different hash.', 'Records are stored per-browser in localStorage. Import the register export if it was created elsewhere.'] });
+}
+async function verifyFile(file) {
+  try {
+    toast(`Hashing ${file.name}…`);
+    const h = await sha256Hex(await readFile(file));
+    verifyHash(h, `File “${file.name}”`, 'Document upload');
+  } catch (err) { toast('Could not read file: ' + err.message, 'error'); }
+}
+wireDrop($('#verify-drop'), $('#verify-file'), verifyFile);
+$('#hash-form').addEventListener('submit', e => { e.preventDefault(); const h = $('#verify-hash').value; verifyHash(h, `Hash ${short(h.trim().toLowerCase(), 16)}`, 'Hash entry'); });
+
+function parsePayload(text) {
+  text = String(text || '').trim();
+  try { const j = JSON.parse(text); if (j && typeof j === 'object') return { id: j.id || j.i || '', hash: String(j.sha256 || j.hash || j.h || '').toLowerCase() }; } catch {}
+  try {
+    const u = new URL(text.replace(/^verifix:\/\//i, 'https://verifix.local/'));
+    const q = u.searchParams;
+    if (q.get('id') || q.get('sha256')) return { id: q.get('id') || '', hash: (q.get('sha256') || '').toLowerCase() };
+  } catch {}
+  return null;
+}
+function handleQrPayload(text, method) {
+  const p = parsePayload(text);
+  if (!p || (!p.id && !p.hash)) {
+    logVerification(method, 'Unrecognised QR', false);
+    return renderVerdict({ ok: false, headline: 'TAMPERED / UNVERIFIED', message: 'This QR code is not a VERIFIX certificate code.', method, notes: [`Decoded content: ${text.slice(0, 160)}`] });
+  }
+  const records = getRecords();
+  const rec = records.find(r => r.id === p.id) || (isSha(p.hash) ? records.find(r => r.hash === p.hash) : null);
+  const ref = p.id || short(p.hash, 16);
+  if (rec && rec.hash === p.hash) {
+    logVerification(method, ref, true);
+    renderVerdict({ ok: true, headline: 'VERIFIED VALID', message: 'The QR code matches a registered certificate and its embedded hash agrees with the register.', record: rec, method,
+      notes: ['This confirms the QR code is genuine. To confirm the document itself is unaltered, also drop it into the document checker on the left.'] });
+  } else if (rec) {
+    logVerification(method, ref, false);
+    renderVerdict({ ok: false, headline: 'TAMPERED / UNVERIFIED', message: 'The certificate ID exists, but the hash in the QR code does not match the registered hash. The QR code has been altered or forged.', record: rec, method, hash: p.hash });
+  } else {
+    logVerification(method, ref, false);
+    renderVerdict({ ok: false, headline: 'TAMPERED / UNVERIFIED', message: 'No certificate with this ID or hash is registered here.', method, hash: p.hash || '',
+      notes: ['Records are stored per-browser. If this certificate was registered on another device, import that register first.'] });
+  }
+}
+
+let scanner = null, scanHandled = false;
+function setCamButtons(running) {
+  $('#btn-cam-start').classList.toggle('hidden', running);
+  $('#btn-cam-stop').classList.toggle('hidden', !running);
+  $('#qr-reader-wrap').classList.toggle('hidden', !running);
+}
+async function startCamera() {
+  try { await needH5QR(); } catch (e) { return toast(e.message, 'error'); }
+  scanHandled = false;
+  setCamButtons(true);
+  try {
+    scanner = new Html5Qrcode('qr-reader');
+    await scanner.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 240, height: 240 } }, txt => {
+      if (scanHandled) return; scanHandled = true;
+      stopCamera(); handleQrPayload(txt, 'QR camera scan');
+    }, () => {});
+  } catch (e) {
+    scanner = null; setCamButtons(false);
+    toast('Camera unavailable: ' + (e?.message || e) + '. Use “Upload QR image” instead.', 'error');
+  }
+}
+async function stopCamera() {
+  const s = scanner; scanner = null;
+  if (s) { try { await s.stop(); } catch {} try { s.clear(); } catch {} }
+  setCamButtons(false);
+}
+$('#btn-cam-start').addEventListener('click', startCamera);
+$('#btn-cam-stop').addEventListener('click', stopCamera);
+
+async function decodeQrImage(file) {
+  await needJsQR();
+  const bmp = await createImageBitmap(file);
+  for (const scale of [1, 0.6, 0.35]) {
+    const maxSide = 1600;
+    const k = Math.min(1, maxSide / Math.max(bmp.width, bmp.height)) * scale;
+    const w = Math.max(1, Math.round(bmp.width * k)), h = Math.max(1, Math.round(bmp.height * k));
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); ctx.drawImage(bmp, 0, 0, w, h);
+    const res = jsQR(ctx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: 'attemptBoth' });
+    if (res && res.data) return res.data;
+  }
+  return null;
+}
+$('#qr-file').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  try {
+    const txt = await decodeQrImage(f);
+    if (!txt) { logVerification('QR image upload', f.name, false); return renderVerdict({ ok: false, headline: 'TAMPERED / UNVERIFIED', message: 'No QR code could be read from this image. Use a sharper, well-lit, uncropped image.', method: 'QR image upload' }); }
+    handleQrPayload(txt, 'QR image upload');
+  } catch (err) { toast('Could not read image: ' + (err.message || err), 'error'); }
+});
+
+function statCard(label, value, tone) {
+  return `<div class="card !p-4"><p class="label">${label}</p><p class="text-3xl font-extrabold ${tone}">${value}</p></div>`;
+}
+function renderHistory() {
+  const records = getRecords(), sessions = store.get(KEYS.sessions, []), vlog = store.get(KEYS.vlog, []);
+  const okN = vlog.filter(v => v.ok).length, badN = vlog.length - okN;
+  const flagged = sessions.filter(s => s.status !== 'pass').length;
+  $('#stats').innerHTML =
+    statCard('Registered certificates', records.length, 'text-cyan-300') +
+    statCard('Files analyzed', sessions.length, 'text-indigo-300') +
+    statCard('Flagged files', flagged, flagged ? 'text-amber-300' : 'text-slate-200') +
+    `<div class="card !p-4"><p class="label">Verifications</p>
+      <p class="text-3xl font-extrabold text-slate-100">${vlog.length}</p>
+      <div class="h-2 rounded-full bg-slate-700 overflow-hidden flex mt-2" role="img" aria-label="${okN} valid, ${badN} failed"><div class="bg-emerald-400" style="width:${vlog.length ? okN / vlog.length * 100 : 0}%"></div><div class="bg-rose-400" style="width:${vlog.length ? badN / vlog.length * 100 : 0}%"></div></div>
+      <p class="text-[11px] text-slate-400 mt-1">${okN} valid · ${badN} failed</p></div>`;
+  renderCerts();
+  const badge = s => ({ pass: ['text-emerald-300', 'Pass'], warn: ['text-amber-300', 'Review'], fail: ['text-rose-300', 'Anomaly'] }[s] || ['text-slate-300', s]);
+  $('#session-body').innerHTML = sessions.length ? sessions.slice(0, 50).map(s => { const [c, t] = badge(s.status); return `
+    <tr><td class="whitespace-nowrap text-slate-400">${esc(fmtDT(s.at))}</td><td class="break-all"><span class="font-medium">${esc(s.name)}</span><br><span class="text-xs text-slate-500">${esc(fmtSize(s.size))} · ${esc(s.detected)}</span></td>
+    <td class="font-mono text-xs"><button class="hover:text-cyan-300" data-copy="${esc(s.sha256)}" title="Copy full hash">${esc(short(s.sha256))}</button></td><td class="${c} font-semibold">${t}</td></tr>`; }).join('')
+    : '<tr><td colspan="4" class="text-center text-slate-500 py-8">No analysis sessions yet. Analyze a file in the Forensics tab.</td></tr>';
+  $('#vlog-body').innerHTML = vlog.length ? vlog.slice(0, 50).map(v => `
+    <tr><td class="whitespace-nowrap text-slate-400">${esc(fmtDT(v.at))}</td><td>${esc(v.method)}</td><td class="break-all text-xs">${esc(v.ref)}</td>
+    <td class="font-semibold ${v.ok ? 'text-emerald-300' : 'text-rose-300'}">${v.ok ? 'Valid' : 'Unverified'}</td></tr>`).join('')
+    : '<tr><td colspan="4" class="text-center text-slate-500 py-8">No verification attempts yet.</td></tr>';
+}
+function renderCerts() {
+  const q = $('#cert-search').value.trim().toLowerCase();
+  const all = getRecords();
+  const rows = q ? all.filter(r => [r.id, r.name, r.roll, r.title, r.issueDate, r.hash].some(v => String(v).toLowerCase().includes(q))) : all;
+  $('#cert-count').textContent = `(${rows.length}${q ? ` of ${all.length}` : ''})`;
+  $('#cert-body').innerHTML = rows.length ? rows.map(r => `
+    <tr>
+      <td class="font-mono text-cyan-300 whitespace-nowrap">${esc(r.id)}</td>
+      <td class="font-medium">${esc(r.name)}</td><td>${esc(r.roll)}</td><td>${esc(r.title)}</td>
+      <td class="whitespace-nowrap">${esc(r.issueDate)}</td>
+      <td class="font-mono text-xs"><button class="hover:text-cyan-300" data-copy="${esc(r.hash)}" title="Copy full hash">${esc(short(r.hash))}</button></td>
+      <td class="whitespace-nowrap"><button class="btn btn-ghost btn-sm" data-qr="${esc(r.id)}" type="button">QR</button>
+        <button class="btn btn-danger btn-sm" data-del="${esc(r.id)}" type="button" aria-label="Delete ${esc(r.id)}">Delete</button></td>
+    </tr>`).join('')
+    : `<tr><td colspan="7" class="text-center text-slate-500 py-8">${all.length ? 'No certificates match your search.' : 'No certificates registered yet.'}</td></tr>`;
+}
+$('#cert-search').addEventListener('input', renderCerts);
+$('#cert-body').addEventListener('click', async e => {
+  const qr = e.target.closest('[data-qr]'), del = e.target.closest('[data-del]');
+  if (qr) {
+    const rec = getRecords().find(r => r.id === qr.dataset.qr); if (!rec) return;
+    const dlg = $('#qr-modal'); await renderQrBlock($('#qr-modal-body'), rec); if (!dlg.open) dlg.showModal();
+  }
+  if (del && confirm(`Delete certificate ${del.dataset.del}? This cannot be undone.`)) {
+    saveRecords(getRecords().filter(r => r.id !== del.dataset.del)); renderHistory(); toast('Certificate deleted', 'success');
+  }
+});
+$('#qr-modal-close').addEventListener('click', () => $('#qr-modal').close());
+$('#qr-modal').addEventListener('click', e => { if (e.target === $('#qr-modal')) $('#qr-modal').close(); });
+
+$('#btn-export').addEventListener('click', () => {
+  const recs = getRecords(); if (!recs.length) return toast('Nothing to export.', 'error');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify({ app: 'VERIFIX', version: 1, exportedAt: new Date().toISOString(), records: recs }, null, 2)], { type: 'application/json' }));
+  a.download = `verifix-register-${todayLocal()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+$('#import-file').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const j = JSON.parse(await f.text()); const incoming = Array.isArray(j) ? j : j.records;
+    if (!Array.isArray(incoming)) throw new Error('Unrecognised file format');
+    const records = getRecords(); let added = 0;
+    for (const r of incoming) {
+      if (!r || !r.id || !r.name || !r.roll || !r.title || !isSha(String(r.hash || '').toLowerCase())) continue;
+      const hash = r.hash.toLowerCase();
+      if (records.some(x => x.id === r.id || x.hash === hash)) continue;
+      records.push({ id: String(r.id), name: String(r.name), roll: String(r.roll), title: String(r.title), issueDate: String(r.issueDate || ''), hash, createdAt: Number(r.createdAt) || Date.now() }); added++;
+    }
+    saveRecords(records); renderHistory(); toast(`Imported ${added} new record(s).`, added ? 'success' : 'info');
+  } catch (err) { toast('Import failed: ' + err.message, 'error'); }
+});
+const clearer = (btn, key, label) => $(btn).addEventListener('click', () => { if (confirm(`Clear all ${label}? This cannot be undone.`)) { store.set(key, []); renderHistory(); } });
+clearer('#btn-clear-certs', KEYS.records, 'registered certificates');
+clearer('#btn-clear-sessions', KEYS.sessions, 'analysis sessions');
+clearer('#btn-clear-vlog', KEYS.vlog, 'verification attempts');
+
+show(location.hash.slice(1) || 'analyzer', false);
+updateLastHint();
+</script>
+</body>
+</html>
