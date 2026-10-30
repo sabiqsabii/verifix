@@ -150,4 +150,4 @@ Secure cloud-based certificate verification.
 
 Disclaimer
 
-VERIFIX is an educational project developed for digital file analysis and document verification demonstrations. It should not be treated as a replacement for professional digital forensics or a trusted certificate authority.# verifix
+VERIFIX is an educational project developed for digital file analysis and document verification demonstrations. It should not be treated as a replacement for professional digital forensics or a trusted certificate authority.
